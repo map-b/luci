@@ -231,8 +231,7 @@ function parseApkQueryJson(s, dest) {
 
 		// Determine all provided names (a package always provides itself)
 		const provides = [name, ...(Array.isArray(pkg.provides) ? pkg.provides : [])];
-		for (let p of provides) {
-			p = p.split('=')[0]; // Handle cases where provides are versioned
+		for (const p of provides) {
 			dest.providers[p] = dest.providers[p] || [];
 			if (!dest.providers[p].includes(pkg))
 				dest.providers[p].push(pkg);
@@ -624,50 +623,73 @@ function renderDependencyItem(dep, info, flat)
 	return li;
 }
 
+let providerCache = null;
+
 function renderDependencies(depends, info, flat)
 {
 	const deps = depends || [];
 	const items = [];
 
-	info.seen = info.seen || [];
+	const PKG_PATTERN = new RegExp(
+		/^([^><=~\s]+)/.source + // Name stops at space or operator
+		/\s*\(?\s*/.source +     // Optional space and opening paren
+		/([><=~]+)?/.source +    // Optional comparison symbols
+		/\s*/.source +           // Optional space
+		/([^)]+)?/.source +      // Optional Version
+		/\s*\)?$/.source         // Optional closing paren and end of string
+	);
+
+	function getProviderMap() {
+		// Only build the map once (Lazy Loading)
+		if (providerCache) return providerCache;
+
+		providerCache = {};
+
+		function index(source) {
+			if (!source) return;
+			for (const key in source) {
+				const m = key.match(PKG_PATTERN);
+				const baseName = m ? m[1] : key;
+				if (!providerCache[baseName]) providerCache[baseName] = new Set();
+				for (const p of source[key]) providerCache[baseName].add(p.name);
+			}
+		}
+
+		index(packages.installed.providers);
+		index(packages.available.providers);
+
+		return providerCache;
+	}
+
+	const activeMap = getProviderMap();
+
+	// Use an object {} for key-based lookups (faster than an array [])
+	info.seen = info.seen || {};
 
 	for (let i = 0; i < deps.length; i++) {
-		let dep, vop, ver;
+		// Initialize: vop/ver are optional (null), dep is mandatory (undefined)
+		let dep, vop = null, ver = null;
 
 		if (deps[i] === 'libc')
 			continue;
 
-		// This regex handles "name", "name>=ver", and "name (>=ver)"
-		const match = deps[i].match(/^([^><=~\s]+)\s*\(?([><=~]+)?\s*([^)]+)?\)?$/);
-
+		const match = deps[i].match(PKG_PATTERN);
 		if (match) {
-			// Destructure the match array: [full_match, name, operator, version]
-			const [, matchedDep, matchedVop, matchedVer] = match;
-			dep = (matchedDep || '').trim();
-			vop = (matchedVop || '').trim() || null;
-			ver = (matchedVer || '').trim() || null;
+			dep = match[1];
+			vop = match[2] || null;
+			ver = match[3] ? match[3].trim() : null;
 		} else {
 			// Fallback if the string is just a plain name with no operators
 			dep = deps[i].trim();
-			vop = ver = null;
 		}
 
-		if (info.seen[dep])
+		// Skip if name is invalid or already processed
+		if (!dep || info.seen[dep])
 			continue;
-
-		const pkgs = [];
-
-		(packages.installed.providers[dep] || []).forEach(function(p) {
-			if (pkgs.indexOf(p.name) === -1) pkgs.push(p.name);
-		});
-
-		(packages.available.providers[dep] || []).forEach(function(p) {
-			if (pkgs.indexOf(p.name) === -1) pkgs.push(p.name);
-		});
 
 		info.seen[dep] = {
 			name:    dep,
-			pkgs:    pkgs,
+			pkgs:    Array.from(activeMap[dep] || []),
 			version: [vop, ver]
 		};
 
