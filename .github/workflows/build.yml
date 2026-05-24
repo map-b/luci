@@ -63,7 +63,7 @@ jobs:
       - name: Build
         uses: openwrt/gh-action-sdk@v7
         env:
-          ARCH: ${{ matrix.arch }}-${{ env.BRANCH }}
+          ARCH: ${{ matrix.arch }}-${{ 'master' }}
           FEEDNAME: packages_ci
           V: s
 
