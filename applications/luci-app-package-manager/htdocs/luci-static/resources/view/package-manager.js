@@ -659,14 +659,15 @@ function renderDependencies(depends, info, flat)
 	// Use an object {} for key-based lookups (faster than an array [])
 	info.seen = info.seen || {};
 
-	const PKG_PATTERN = new RegExp(
-		/^([^><=~\s]+)/.source + // [1] Name stops at space or operator
-		/\s*\(?\s*/.source +     // Optional space and opening paren
-		/([><=~]+)?/.source +    // [2] Optional comparison symbols
-		/\s*/.source +           // Optional space
-		/([^)]+)?/.source +      // [3] Optional Version
-		/\s*\)?$/.source         // Optional closing paren and end of string
-	);
+	// const PKG_PATTERN = new RegExp(
+	// 	/^([^><=~\s]+)/.source + // [1] Name stops at space or operator
+	// 	/\s*\(?\s*/.source +     // Optional space and opening paren
+	// 	/([><=~]+)?/.source +    // [2] Optional comparison symbols
+	// 	/\s*/.source +           // Optional space
+	// 	/([^)]+)?/.source +      // [3] Optional Version
+	// 	/\s*\)?$/.source         // Optional closing paren and end of string
+	// );
+	const PKG_PATTERN = /^([^><=~\s]+)\s*\(?\s*([><=~]+)?\s*([^)]+)?\s*\)?$/;
 
 	for (let i = 0; i < deps.length; i++) {
 		// Initialize: vop/ver are optional (null), dep is mandatory (undefined)
