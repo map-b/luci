@@ -60,6 +60,12 @@ jobs:
           echo "Building $PACKAGES"
           echo "PACKAGES=$PACKAGES" >> $GITHUB_ENV
 
+      # 1. Minify
+      - name: Prepare Minify Binary for OpenWrt SDK
+        run: |
+          curl -sL https://github.com/tdewolff/minify/releases/download/v2.24.13/minify_linux_amd64.tar.gz | tar -xz
+          chmod +x minify
+
       - name: Build
         uses: openwrt/gh-action-sdk@v7
         env:
