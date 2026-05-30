@@ -48,8 +48,8 @@ jobs:
       - name: Override luci feed with your fork
         working-directory: openwrt
         run: |
-          sed -i '/src-git luci\|src-git-full luci/d' feeds.conf.default
-          echo "src-link luci $GITHUB_WORKSPACE/luci-custom" >> feeds.conf
+          sed -i '/src-git luci/d' feeds.conf.default
+          echo "src-link luci $GITHUB_WORKSPACE/luci-custom" >> feeds.conf.default
       - name: Update and install feeds
         working-directory: openwrt
         run: |
@@ -76,9 +76,16 @@ jobs:
         with:
           name: build-logs
           path: openwrt/logs/
-      - name: Upload firmware images
+      - name: Create artifact archive
+        if: steps.build.outputs.build_success == 'true'
+        working-directory: openwrt
+        run: |
+          cd bin/
+          tar -czf ../build-artifacts.tar.gz *
+          cd ..
+      - name: Upload build artifacts
         if: steps.build.outputs.build_success == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: firmware-${{ inputs.target }}-${{ inputs.subtarget }}-${{ inputs.profile }}
-          path: openwrt/bin/targets/
+          name: build-${{ inputs.target }}-${{ inputs.subtarget }}-${{ inputs.profile }}
+          path: openwrt/build-artifacts.tar.gz
