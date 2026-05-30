@@ -68,7 +68,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci=y" >> .config
           echo "CONFIG_PACKAGE_luci-base=y" >> .config
           make defconfig
-          make -j$(nproc) BUILD_LOG=1
+          make -j$(nproc) BUILD_LOG=1 V=s
           echo "build_success=true" >> $GITHUB_OUTPUT
       - name: Upload build logs
         if: always()
