@@ -257,8 +257,14 @@ endif
 
 ifeq ($(LUCI_MINIFY_JS),1)
   define JsMin
+	ESBUILD_VER="0.28.0"; \
+	if [ ! -f "$(STAGING_DIR_HOST)/bin/esbuild" ]; then \
+		curl -sL "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-$$$$ESBUILD_VER.tgz" \
+			| tar xz -C "$(STAGING_DIR_HOST)/bin" --strip=2 package/bin/esbuild 2>/dev/null && \
+			chmod +x "$(STAGING_DIR_HOST)/bin/esbuild"; \
+	fi
 	$(FIND) $(1) -type f -name '*.js' | while read src; do \
-		if jsmin < "$$$$src" > "$$$$src.o"; \
+		if $(STAGING_DIR_HOST)/bin/esbuild --minify < "$$$$src" > "$$$$src.o"; \
 		then mv "$$$$src.o" "$$$$src"; fi; \
 	done
   endef
