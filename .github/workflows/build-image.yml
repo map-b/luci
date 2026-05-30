@@ -1,0 +1,84 @@
+name: Build Image with Custom Luci
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target (e.g., malta)'
+        required: true
+        default: 'malta'
+      subtarget:
+        description: 'Subtarget (le/be/le64/be64)'
+        required: true
+        default: 'le'
+      profile:
+        description: 'Device profile'
+        required: true
+        default: 'Default'
+      openwrt_branch:
+        description: 'OpenWrt branch to build against'
+        required: true
+        default: 'openwrt-25.12'
+      luci_branch:
+        description: 'Your luci fork branch (default: current)'
+        required: false
+        default: ''
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout OpenWrt main repo (${{ inputs.openwrt_branch }})
+        uses: actions/checkout@v6
+        with:
+          repository: openwrt/openwrt
+          ref: ${{ inputs.openwrt_branch }}
+          path: openwrt
+          fetch-depth: 1
+      - name: Checkout custom luci fork
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.luci_branch || github.ref }}
+          path: luci-custom
+          fetch-depth: 0
+      - name: Setup build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev gawk git \
+            subversion libssl-dev gettext zlib1g-dev swig unzip time rsync
+      - name: Override luci feed with your fork
+        working-directory: openwrt
+        run: |
+          sed -i '/src-git luci\|src-git-full luci/d' feeds.conf.default
+          echo "src-link luci $GITHUB_WORKSPACE/luci-custom" >> feeds.conf
+      - name: Update and install feeds
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+      - name: Build target image
+        working-directory: openwrt
+        id: build
+        run: |
+          make defconfig
+          echo "CONFIG_DEVEL=y" > .config
+          echo "CONFIG_BPF_TOOLCHAIN_HOST=y" >> .config
+          echo "CONFIG_TARGET_${{ inputs.target }}=y" >> .config
+          echo "CONFIG_TARGET_${{ inputs.target }}_${{ inputs.subtarget }}=y" >> .config
+          echo "CONFIG_TARGET_${{ inputs.target }}_${{ inputs.subtarget }}_${{ inputs.profile }}=y" >> .config
+          echo "CONFIG_PACKAGE_luci=y" >> .config
+          echo "CONFIG_PACKAGE_luci-base=y" >> .config
+          make defconfig
+          make -j$(nproc) BUILD_LOG=1
+          echo "build_success=true" >> $GITHUB_OUTPUT
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs
+          path: openwrt/logs/
+      - name: Upload firmware images
+        if: steps.build.outputs.build_success == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-${{ inputs.target }}-${{ inputs.subtarget }}-${{ inputs.profile }}
+          path: openwrt/bin/targets/
