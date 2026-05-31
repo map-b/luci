@@ -25,11 +25,13 @@ on:
       enable_js_minification:
         description: 'Enable JavaScript minification (esbuild)'
         required: false
-        default: 'true'
+        type: boolean
+        default: true
       enable_css_minification:
         description: 'Enable CSS minification (esbuild)'
         required: false
-        default: 'true'
+        type: boolean
+        default: true
 jobs:
   build:
     runs-on: ubuntu-latest
