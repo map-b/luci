@@ -22,6 +22,14 @@ on:
         description: 'Your luci fork branch (default: current)'
         required: false
         default: ''
+      enable_js_minification:
+        description: 'Enable JavaScript minification (esbuild)'
+        required: false
+        default: 'true'
+      enable_css_minification:
+        description: 'Enable CSS minification (esbuild)'
+        required: false
+        default: 'true'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -67,6 +75,8 @@ jobs:
           echo "CONFIG_TARGET_${{ inputs.target }}_${{ inputs.subtarget }}_${{ inputs.profile }}=y" >> .config
           echo "CONFIG_PACKAGE_luci=y" >> .config
           echo "CONFIG_PACKAGE_luci-base=y" >> .config
+          echo "CONFIG_LUCI_JSMIN=${{ inputs.enable_js_minification && 'y' || 'n' }}" >> .config
+          echo "CONFIG_LUCI_CSSTIDY=${{ inputs.enable_css_minification && 'y' || 'n' }}" >> .config
           make defconfig
           make -j$(nproc) BUILD_LOG=1 V=s
           echo "build_success=true" >> $GITHUB_OUTPUT
