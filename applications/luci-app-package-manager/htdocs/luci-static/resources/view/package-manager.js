@@ -558,7 +558,8 @@ function pkgStatus(pkg, vop, ver, info)
 	}
 	else if (!pkg.missing) {
 		if (!vop || versionSatisfied(pkg.version, ver, vop)) {
-			info.install.push(pkg);
+			if (!info.install.some(p => p.name === pkg.name))
+				info.install.push(pkg);
 			return E('span', { 'class': 'label' }, _('Not installed'));
 		}
 
@@ -595,12 +596,15 @@ function renderDependencyItem(dep, info, flat)
 
 		let text = pkg.name;
 
+		if (vop && ver)
+			text += ' (%s %s)'.format(vop, ver);
+
 		if (pkg.installsize)
 			text += ' (%1024mB)'.format(pkg.installsize);
 		else if (pkg.size)
 			text += ' (~%1024mB)'.format(pkg.size);
 
-		li.appendChild(E('span', { 'data-tooltip': pkg.description },
+		li.appendChild(E('span', { 'data-tooltip': pkg.description + (vop && ver ? '\nAvailable: %s'.format(pkg.version) : '') },
 			[ text, ' ', pkgStatus(pkg, vop, ver, info) ]));
 
 		(pkg.depends || []).forEach(function(d) {
@@ -646,7 +650,7 @@ function renderDependencies(depends, info, flat)
 		//   ([^)]+)?         [3] optional version string
 		//   \)?$              optional closing paren + end
 		const m = deps[i].match(/^([^><=~\s]+)\s?\(?([><=~]+)?\s?([^)]+)?\)?$/);
-		if (!m || info.seen[m[1]])
+		if (!m || info.seen[deps[i]])
 			continue;
 
 		// Provider cache (pC): dep name -> Set of package names (incrementally populated)
@@ -660,13 +664,17 @@ function renderDependencies(depends, info, flat)
 					pC[m[1]].add(p.name);
 		}
 
-		info.seen[m[1]] = {
+		// Index by full string so entries with different constraints on
+		// the same package each get their own line:
+		//   "ucode (>= 2022.03.22)" vs "ucode"
+		//   "dovecot2.3.21>=2.3.0" vs "dovecot2.3.21<2.4.0"
+		info.seen[deps[i]] = {
 			name:    m[1],
 			pkgs:    [...pC[m[1]]],
 			version: [m[2] || null, m[3] || null]
 		};
 
-		items.push(renderDependencyItem(info.seen[m[1]], info, flat));
+		items.push(renderDependencyItem(info.seen[deps[i]], info, flat));
 	}
 
 	if (items.length)
